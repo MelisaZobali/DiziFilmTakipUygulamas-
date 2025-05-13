@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:dizifilmtakip/lib/screens/ana_sayfa.dart';
+import 'package:dizifilmtakip/lib/screens/oneri_chatbot_ekrani.dart';
 import 'package:dizifilmtakip/lib/screens/icerik_ara_sayfasi.dart';
 import 'package:dizifilmtakip/lib/screens/devam_tahmin_ekrani.dart';
+import 'package:dizifilmtakip/lib/screens/profil_sayfasi.dart';
 
 void main() {
   runApp(MyApp());
@@ -15,7 +18,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Film & Dizi Takip',
       theme: ThemeData.dark(),
-      home: GirisSayfasi(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => GirisSayfasi(),
+        '/devam': (context) => DevamTahminEkrani(),
+        '/oneri': (context) => OneriChatbotEkrani(),
+        '/icerik': (context) => IcerikAraSayfasi(kullaniciEmail: "demo@ornek.com"),
+        '/profil': (context) => ProfilSayfasi(), 
+      },
     );
   }
 }
@@ -30,26 +40,39 @@ class _GirisSayfasiState extends State<GirisSayfasi> {
   final TextEditingController sifreController = TextEditingController();
 
   Future<void> girisYap() async {
-    // TODO: API ile giriş yapma logic
     final email = emailController.text.trim();
     final sifre = sifreController.text.trim();
+
     if (email.isEmpty || sifre.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Lütfen tüm alanları doldurun.')));
       return;
     }
+
     try {
-      // örnek HTTP isteği
-      // final response = await http.post(...);
-      // if (response.statusCode == 200) Navigator.push(...)
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Giriş başarılı (demo).')));
+      final url = Uri.parse('http://10.0.2.2:5000/giris');
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "sifre": sifre}),
+      );
+
+      if (response.statusCode == 200) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AnaSayfa(kullaniciEmail: email)),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Giriş başarısız.')));
+      }
     } catch (e) {
+      print("Giriş hatası: $e");
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Giriş sırasında hata oluştu.')));
+      ).showSnackBar(SnackBar(content: Text('Sunucu hatası: $e')));
     }
   }
 

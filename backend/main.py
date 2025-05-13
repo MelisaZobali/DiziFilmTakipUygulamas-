@@ -18,6 +18,35 @@ CORS(app)
 
 OMDB_API_KEY= '157be653'
 
+@app.route('/oneri-chatbotu', methods=['POST'])
+def oneri_chatbotu():
+    try:
+        data = request.get_json()
+        mesaj = data.get("mesaj")
+
+        if not mesaj:
+            return jsonify({"message": "Mesaj boş olamaz."}), 400
+
+        prompt = (
+            f"Kullanıcı şu isteği yazdı: '{mesaj}'. "
+            f"Buna göre ruh haline ve tür tercihlerine uygun 1-2 dizi veya film öner. "
+            f"Sadece öneri isimlerini ve neden uygun olduklarını kısa şekilde belirt."
+        )
+
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+
+        yanit = response['choices'][0]['message']['content']
+        return jsonify({"oneri": yanit.strip()}), 200
+
+    except Exception as e:
+        print("Öneri chatbotu hatası:", e)
+        return jsonify({"message": "Sunucu hatası"}), 500
+
 
 
 @app.route('/devam-noktasi-tahmin', methods=['POST'])
