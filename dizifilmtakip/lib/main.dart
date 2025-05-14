@@ -1,30 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
 import 'package:dizifilmtakip/lib/screens/ana_sayfa.dart';
 import 'package:dizifilmtakip/lib/screens/oneri_chatbot_ekrani.dart';
 import 'package:dizifilmtakip/lib/screens/icerik_ara_sayfasi.dart';
 import 'package:dizifilmtakip/lib/screens/devam_tahmin_ekrani.dart';
 import 'package:dizifilmtakip/lib/screens/profil_sayfasi.dart';
 
-void main() {
-  runApp(MyApp());
-}
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp( 
       debugShowCheckedModeBanner: false,
       title: 'Film & Dizi Takip',
       theme: ThemeData.dark(),
       initialRoute: '/',
       routes: {
         '/': (context) => GirisSayfasi(),
+        '/anasayfa': (context) {
+          final email = ModalRoute.of(context)!.settings.arguments as String;
+          return AnaSayfa(kullaniciEmail: email);
+        },
         '/devam': (context) => DevamTahminEkrani(),
         '/oneri': (context) => OneriChatbotEkrani(),
         '/icerik': (context) => IcerikAraSayfasi(kullaniciEmail: "demo@ornek.com"),
-        '/profil': (context) => ProfilSayfasi(), 
+        '/profil': (context) => ProfilSayfasi(kullaniciEmail: "demo@gmail.com"),
       },
     );
   }
@@ -44,9 +47,8 @@ class _GirisSayfasiState extends State<GirisSayfasi> {
     final sifre = sifreController.text.trim();
 
     if (email.isEmpty || sifre.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lütfen tüm alanları doldurun.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lütfen tüm alanları doldurun.')));
       return;
     }
 
@@ -56,31 +58,28 @@ class _GirisSayfasiState extends State<GirisSayfasi> {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": email, "sifre": sifre}),
-      );
+      )
+      .timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        Navigator.push(
+        // Başarılı giriş → AnaSayfa’ya geçiş
+        Navigator.pushReplacementNamed(
           context,
-          MaterialPageRoute(builder: (_) => AnaSayfa(kullaniciEmail: email)),
+          '/anasayfa',
+          arguments: email,
         );
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Giriş başarısız.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Giriş başarısız.')));
       }
     } catch (e) {
       print("Giriş hatası: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Sunucu hatası: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Sunucu hatası: $e')));
     }
   }
 
-  Widget _buildField(
-    TextEditingController c,
-    String hint, {
-    bool obscure = false,
-  }) {
+  Widget _buildField(TextEditingController c, String hint, {bool obscure = false}) {
     return TextField(
       controller: c,
       obscureText: obscure,
@@ -145,20 +144,16 @@ class _GirisSayfasiState extends State<GirisSayfasi> {
                         ),
                         child: Text(
                           'Giriş Yap',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
                     SizedBox(height: 16),
                     GestureDetector(
-                      onTap:
-                          () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => KayitSayfasi()),
-                          ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => KayitSayfasi()),
+                      ),
                       child: Text.rich(
                         TextSpan(
                           text: 'Hesabınız yok mu? ',
@@ -166,10 +161,7 @@ class _GirisSayfasiState extends State<GirisSayfasi> {
                           children: [
                             TextSpan(
                               text: 'Kayıt ol',
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -198,28 +190,48 @@ class _KayitSayfasiState extends State<KayitSayfasi> {
   final TextEditingController dogumController = TextEditingController();
 
   Future<void> kaydol() async {
-    // TODO: API ile kayıt logic
-    final isim = isimController.text.trim();
-    final email = emailController.text.trim();
-    final sifre = sifreController.text.trim();
-    final dogum = dogumController.text.trim();
-    if (isim.isEmpty || email.isEmpty || sifre.isEmpty || dogum.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lütfen tüm alanları doldurun.')));
-      return;
+  final isim = isimController.text.trim();
+  final email = emailController.text.trim();
+  final sifre = sifreController.text.trim();
+  final dogum = dogumController.text.trim();
+
+  if (isim.isEmpty || email.isEmpty || sifre.isEmpty || dogum.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Lütfen tüm alanları doldurun.')),
+    );
+    return;
+  }
+
+  try {
+    final url = Uri.parse('http://10.0.2.2:5000/kaydol'); 
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "kullanici_adi": isim,
+        "email": email,
+        "sifre": sifre,
+        "dogum_tarihi": dogum
+      }),
+    )
+    .timeout(Duration(seconds: 10));
+
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kayıt başarılı! Giriş ekranına yönlendiriliyorsunuz.')),
+      );
+      Navigator.pop(context); // Giriş ekranına dön
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kayıt başarısız: ${jsonDecode(response.body)['hata'] ?? 'Hata oluştu.'}')),
+      );
     }
-    try {
-      // örnek HTTP isteği
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Kayıt başarılı (demo).')));
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Kayıt sırasında hata oluştu.')));
-    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sunucu hatası: $e')),
+    );
+  }
+}
   }
 
   Widget _buildField(

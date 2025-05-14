@@ -1,3 +1,4 @@
+import 'package:dizifilmtakip/lib/screens/profil_sayfasi.dart';
 import 'package:flutter/material.dart';
 
 class AnaSayfa extends StatelessWidget {
@@ -52,17 +53,17 @@ class AnaSayfa extends StatelessWidget {
               ),
               SizedBox(height: 16),
               ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilSayfasi(kullaniciEmail: kullaniciEmail),
-      ),
-    );
-  },
-  child: Text("👤 Profil"),
-),
-
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => ProfilSayfasi(kullaniciEmail: kullaniciEmail),
+                    ),
+                  );
+                },
+                child: Text("👤 Profil"),
+              ),
             ],
           ),
         ),
