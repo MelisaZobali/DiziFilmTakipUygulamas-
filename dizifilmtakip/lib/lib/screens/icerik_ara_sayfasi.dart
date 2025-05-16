@@ -1,160 +1,180 @@
-
-// TODO Implement this library.
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class IcerikAraSayfasi extends StatefulWidget {
   final String kullaniciEmail;
-
-  IcerikAraSayfasi({required this.kullaniciEmail});
+  const IcerikAraSayfasi({Key? key, required this.kullaniciEmail})
+    : super(key: key);
 
   @override
   _IcerikAraSayfasiState createState() => _IcerikAraSayfasiState();
 }
 
 class _IcerikAraSayfasiState extends State<IcerikAraSayfasi> {
-  TextEditingController aramaController = TextEditingController();
-  TextEditingController bolumController = TextEditingController();
-  List<dynamic> icerikListesi = [];
-  bool loading = false;
+  final TextEditingController _aramaController = TextEditingController();
+  final TextEditingController _bolumController = TextEditingController();
+  List<dynamic> _icerikListesi = [];
+  bool _loading = false;
 
-  Future<void> icerikAra(String aramaKelimesi) async {
-    setState(() {
-      loading = true;
-    });
+  @override
+  void dispose() {
+    _aramaController.dispose();
+    _bolumController.dispose();
+    super.dispose();
+  }
 
-    final url = Uri.parse('http://10.0.2.2:5000/icerik-listesi?q=$aramaKelimesi');
+  Future<void> _icerikAra() async {
+    final query = _aramaController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() => _loading = true);
+
+    final url = Uri.parse('http://10.0.2.2:5000/icerik-listesi?q=$query');
 
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final List<dynamic> cevap = jsonDecode(response.body);
+        final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          icerikListesi = cevap;
-          loading = false;
+          _icerikListesi = data;
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İçerik bulunamadı.')),
-        );
-        setState(() {
-          loading = false;
-        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('İçerik bulunamadı.')));
       }
     } catch (e) {
-      print('Hata: $e');
-      setState(() {
-        loading = false;
-      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
-  Future<void> icerikEkle(Map<String, dynamic> secilenIcerik) async {
-    String baslik = secilenIcerik['Title'];
-    String tur = secilenIcerik['Type']; // movie veya series
+  Future<void> _icerikEkle(Map<String, dynamic> item) async {
+    final baslik = item['Title'];
+    final tur = item['Type'];
+    int? bolum;
 
-    int? bolumNumarasi;
-    if (tur == "series") {
-      // Eğer dizi seçildiyse bölüm sor
+    if (tur == 'series') {
       await showDialog(
         context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text('Kaçıncı Bölümdesin?'),
-            content: TextField(
-              controller: bolumController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(hintText: 'Bölüm Numarası'),
-            ),
-            actions: [
-              TextButton(
-                child: Text('Tamam'),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+        builder:
+            (_) => AlertDialog(
+              title: Text('Kaçıncı Bölümdesin?'),
+              content: TextField(
+                controller: _bolumController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(hintText: 'Bölüm Numarası'),
               ),
-            ],
-          );
-        },
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Tamam'),
+                ),
+              ],
+            ),
       );
-      bolumNumarasi = int.tryParse(bolumController.text);
+      bolum = int.tryParse(_bolumController.text.trim());
     }
 
-    final ekleUrl = Uri.parse('http://10.0.2.2:5000/icerik-ekle');
-
+    final url = Uri.parse('http://10.0.2.2:5000/icerik-ekle');
     try {
       final response = await http.post(
-        ekleUrl,
-        headers: {"Content-Type": "application/json"},
+        url,
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "email": widget.kullaniciEmail,
-          "baslik": baslik,
-          "tur": tur,
-          "bolum": bolumNumarasi
+          'email': widget.kullaniciEmail,
+          'baslik': baslik,
+          'tur': tur,
+          'bolum': bolum,
         }),
       );
-
-      final cevap = jsonDecode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(cevap['durum'] ?? 'İçerik eklendi!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(cevap['hata'] ?? 'Bir hata oluştu')),
-        );
-      }
+      final res = jsonDecode(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['durum'] ?? res['hata'] ?? '')),
+      );
     } catch (e) {
-      print('Hata oluştu: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ekleme hatası: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('İçerik Ara')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: aramaController,
-              decoration: InputDecoration(
-                hintText: 'Dizi/Film ara',
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.search),
-                  onPressed: () {
-                    if (aramaController.text.isNotEmpty) {
-                      icerikAra(aramaController.text);
-                    }
-                  },
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            loading
-                ? CircularProgressIndicator()
-                : Expanded(
-                    child: ListView.builder(
-                      itemCount: icerikListesi.length,
-                      itemBuilder: (context, index) {
-                        final item = icerikListesi[index];
-                        return ListTile(
-                          title: Text(item['Title']),
-                          subtitle: Text(item['Type']),
-                          trailing: Icon(Icons.add),
-                          onTap: () {
-                            icerikEkle(item);
-                          },
-                        );
-                      },
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Arka plan görseli
+          Image.asset('assets/home_bg.png', fit: BoxFit.cover),
+          // Üstüne yarı saydam karartma
+          Container(color: Colors.black.withOpacity(0.6)),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Arama çubuğu
+                  TextField(
+                    controller: _aramaController,
+                    style: TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Dizi/Film ara',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.1),
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.search, color: Colors.white70),
+                        onPressed: _icerikAra,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
                     ),
                   ),
-          ],
-        ),
+                  const SizedBox(height: 20),
+
+                  // İçerik listesi veya yükleniyor göstergesi
+                  _loading
+                      ? CircularProgressIndicator(color: Colors.cyanAccent)
+                      : Expanded(
+                        child: ListView.builder(
+                          itemCount: _icerikListesi.length,
+                          itemBuilder: (context, i) {
+                            final item = _icerikListesi[i];
+                            return Card(
+                              color: Colors.white.withOpacity(0.1),
+                              child: ListTile(
+                                title: Text(
+                                  item['Title'],
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                subtitle: Text(
+                                  item['Type'],
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                                trailing: Icon(
+                                  Icons.add,
+                                  color: Colors.cyanAccent,
+                                ),
+                                onTap: () => _icerikEkle(item),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
